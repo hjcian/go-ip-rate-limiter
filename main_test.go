@@ -1,11 +1,19 @@
 package main
 
 import (
-	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func makeVirtualUserReq(url, clientip string) (*http.Response, error) {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("X-Real-Ip", clientip) // leverage the behavior of c.ClientIP()
+	res, err := client.Do(req)
+	return res, err
+}
 
 func Test_Basic(t *testing.T) {
 	// =================================================================
@@ -19,7 +27,7 @@ func Test_Basic(t *testing.T) {
 	defer ts.Close()
 
 	// Make a request to our server with the {base url}/ping
-	resp, err := http.Get(fmt.Sprintf("%s/pg", ts.URL))
+	resp, err := makeVirtualUserReq(ts.URL, "1.2.3.4")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -40,4 +48,7 @@ func Test_Basic(t *testing.T) {
 	if val[0] != "application/json; charset=utf-8" {
 		t.Fatalf("Expected \"application/json; charset=utf-8\", got %s", val[0])
 	}
+	defer resp.Body.Close()
+	text, err := ioutil.ReadAll(resp.Body)
+	t.Logf("%s \n", text)
 }
