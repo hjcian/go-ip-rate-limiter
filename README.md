@@ -8,9 +8,9 @@ This repo is an IP rate limit middleware practice by Go.
   - [Run Test](#run-test)
   - [Run Server](#run-server)
   - [Usage](#usage)
-    - [Service available Response](#service-available-response)
-    - [Error Response](#error-response)
-  - [Response Header Explanation](#response-header-explanation)
+    - [Response if **NOT** exceed the rate limit](#response-if-not-exceed-the-rate-limit)
+    - [Response if **EXCEED** the rate limit](#response-if-exceed-the-rate-limit)
+    - [Response Header Explanation](#response-header-explanation)
   - [References](#references)
 
 ## Install
@@ -35,7 +35,7 @@ go run main.go
 
 ## Usage
 
-### Service available Response
+### Response if **NOT** exceed the rate limit
 ```shell
 $ curl -I http://localhost:8080/foobar
 HTTP/1.1 200 OK
@@ -49,7 +49,7 @@ Date: Sun, 08 Nov 2020 09:47:00 GMT
 Content-Length: 13
 ```
 
-### Error Response
+### Response if **EXCEED** the rate limit
 ```shell
 $ curl -I http://localhost:8080/foobar
 HTTP/1.1 429 Too Many Requests
@@ -61,10 +61,10 @@ X-Ratelimit-Limit-Used: 60
 Date: Sun, 08 Nov 2020 09:47:21 GMT
 ```
 
-## Response Header Explanation
+### Response Header Explanation
 > 假設：自第一次 Request 起算，每個 IP 每分鐘僅能接受 60 個 requests
 
-|Header                       |Description
+|Header name                  |Description
 |-----------------------------|-----------------------------|
 |X-Ratelimit-Limit-Ip         |client 的 IP|
 |X-Ratelimit-Limit-Per-Minute |預設的上限 (rate limit)|
