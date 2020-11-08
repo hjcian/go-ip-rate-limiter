@@ -1,0 +1,2 @@
+### Whatever
+GET http://localhost:8080/foobar HTTP/1.1

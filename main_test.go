@@ -1,10 +1,11 @@
 package main
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func makeVirtualUserReq(url, clientip string) (*http.Response, error) {
@@ -15,7 +16,79 @@ func makeVirtualUserReq(url, clientip string) (*http.Response, error) {
 	return res, err
 }
 
+func AssertErr(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+}
+
+func AssertStatus200(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %v", resp.StatusCode)
+	}
+}
+
+func AssertStatusError(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp.StatusCode == 200 {
+		t.Errorf("Expected status code != 200, got %v", resp.StatusCode)
+	}
+}
+
+func AssertRemaining(t *testing.T, got, expect string) {
+	t.Helper()
+	if got != expect {
+		t.Errorf("Expected Remaining %v, got %v", expect, got)
+	}
+}
+
+func AssertUsed(t *testing.T, got, expect string) {
+	t.Helper()
+	if got != expect {
+		t.Errorf("Expected Used %v, got %v", expect, got)
+	}
+}
+
+func Test_one_client(t *testing.T) {
+	// t.Skip()
+
+	gin.SetMode(gin.ReleaseMode)
+
+	ts := httptest.NewServer(setupServer())
+	defer ts.Close()
+
+	// consume all tokens but left one
+	for i := 0; i < 58; i++ {
+		makeVirtualUserReq(ts.URL, "1.2.3.4")
+	}
+
+	// use last two
+	resp, err := makeVirtualUserReq(ts.URL, "1.2.3.4")
+	AssertErr(t, err)
+	AssertStatus200(t, resp)
+	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "1")
+	AssertUsed(t, resp.Header.Get("X-ratelimit-limit-used"), "59")
+
+	// use last one
+	resp, err = makeVirtualUserReq(ts.URL, "1.2.3.4")
+	AssertErr(t, err)
+	AssertStatus200(t, resp)
+	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "0")
+	AssertUsed(t, resp.Header.Get("X-ratelimit-limit-used"), "60")
+
+	// test Error
+	resp, err = makeVirtualUserReq(ts.URL, "1.2.3.4")
+	AssertErr(t, err)
+	AssertStatusError(t, resp)
+	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "0")
+	AssertUsed(t, resp.Header.Get("X-ratelimit-limit-used"), "60")
+}
+
 func Test_Basic(t *testing.T) {
+	// t.Skip()
+	gin.SetMode(gin.ReleaseMode)
 	// =================================================================
 	// Referencing from https://kpat.io/2019/06/testing-with-gin/
 	// =================================================================
@@ -28,14 +101,8 @@ func Test_Basic(t *testing.T) {
 
 	// Make a request to our server with the {base url}/ping
 	resp, err := makeVirtualUserReq(ts.URL, "1.2.3.4")
-
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("Expected status code 200, got %v", resp.StatusCode)
-	}
+	AssertErr(t, err)
+	AssertStatus200(t, resp)
 
 	val, ok := resp.Header["Content-Type"]
 
@@ -48,7 +115,9 @@ func Test_Basic(t *testing.T) {
 	if val[0] != "application/json; charset=utf-8" {
 		t.Fatalf("Expected \"application/json; charset=utf-8\", got %s", val[0])
 	}
-	defer resp.Body.Close()
-	text, err := ioutil.ReadAll(resp.Body)
-	t.Logf("%s \n", text)
+
+	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-per-minute"))
+	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-remaining"))
+	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-reset"))
+	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-used"))
 }
