@@ -6,6 +6,48 @@ import (
 	"time"
 )
 
+func AssertAllow(t *testing.T, got, want bool) {
+	t.Helper()
+	if got != want {
+		t.Errorf("[isAllow] got = %v, want %v", got, want)
+	}
+}
+
+func AssertRatelimitLimitUsed(t *testing.T, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("[RatelimitLimitUsed] got = %v, want %v", got, want)
+	}
+}
+
+func AssertRatelimitLimitRemaining(t *testing.T, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("[RatelimitLimitRemaining] got = %v, want %v", got, want)
+	}
+}
+
+func Test_rateLimiter_goroutine_safed(t *testing.T) {
+	// t.Skip()
+	limit := 10000
+	r := NewRateLimiter(limit)
+	var wg sync.WaitGroup
+
+	for i := 0; i < limit; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.Allow() // comsume all rate limit quota
+		}()
+	}
+	wg.Wait()
+
+	got1, got2 := r.Allow()
+	AssertAllow(t, got1, false)
+	AssertRatelimitLimitUsed(t, got2.RatelimitLimitUsed, limit)
+	AssertRatelimitLimitRemaining(t, got2.RatelimitLimitRemaining, 0)
+}
+
 func Test_rateLimiter_reset(t *testing.T) {
 	limit := 2
 	window := time.Nanosecond // testing window is 1 Millisecond
@@ -32,23 +74,9 @@ func Test_rateLimiter_reset(t *testing.T) {
 		time.Sleep(2 * window) // wait for reset
 		t.Run(tt.name, func(t *testing.T) {
 			got1, got2 := r.Allow()
-			if got1 != tt.want1 {
-				t.Errorf("[isAllow] got = %v, want %v", got1, tt.want1)
-			}
-			if got2.RatelimitLimitUsed != tt.want2.RatelimitLimitUsed {
-				t.Errorf(
-					"[RatelimitLimitUsed] got = %v, want %v",
-					got2.RatelimitLimitUsed,
-					tt.want2.RatelimitLimitUsed,
-				)
-			}
-			if got2.RatelimitLimitRemaining != tt.want2.RatelimitLimitRemaining {
-				t.Errorf(
-					"[RatelimitLimitRemaining] got = %v, want %v",
-					got2.RatelimitLimitRemaining,
-					tt.want2.RatelimitLimitRemaining,
-				)
-			}
+			AssertAllow(t, got1, tt.want1)
+			AssertRatelimitLimitUsed(t, got2.RatelimitLimitUsed, tt.want2.RatelimitLimitUsed)
+			AssertRatelimitLimitRemaining(t, got2.RatelimitLimitRemaining, tt.want2.RatelimitLimitRemaining)
 		})
 	}
 }
@@ -68,25 +96,10 @@ func Test_rateLimiter_Allow(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			got1, got2 := r.Allow()
-			if got1 != tt.want1 {
-				t.Errorf("[isAllow] got = %v, want %v", got1, tt.want1)
-			}
-			if got2.RatelimitLimitUsed != tt.want2.RatelimitLimitUsed {
-				t.Errorf(
-					"[RatelimitLimitUsed] got = %v, want %v",
-					got2.RatelimitLimitUsed,
-					tt.want2.RatelimitLimitUsed,
-				)
-			}
-			if got2.RatelimitLimitRemaining != tt.want2.RatelimitLimitRemaining {
-				t.Errorf(
-					"[RatelimitLimitRemaining] got = %v, want %v",
-					got2.RatelimitLimitRemaining,
-					tt.want2.RatelimitLimitRemaining,
-				)
-			}
+			AssertAllow(t, got1, tt.want1)
+			AssertRatelimitLimitUsed(t, got2.RatelimitLimitUsed, tt.want2.RatelimitLimitUsed)
+			AssertRatelimitLimitRemaining(t, got2.RatelimitLimitRemaining, tt.want2.RatelimitLimitRemaining)
 		})
 	}
 }
