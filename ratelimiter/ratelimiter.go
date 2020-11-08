@@ -13,18 +13,20 @@ type RateLimitStatus struct {
 }
 
 type RateLimiter struct {
-	mu    *sync.RWMutex
-	limit int // limit per minute
-	count int
-	first time.Time
+	mu     *sync.RWMutex
+	limit  int // limit per minute
+	count  int
+	first  time.Time
+	window time.Duration // rate limit window
 }
 
 func NewRateLimiter(limit int) *RateLimiter {
 	return &RateLimiter{
-		mu:    &sync.RWMutex{},
-		limit: limit,
-		count: 0,
-		first: time.Now(),
+		mu:     &sync.RWMutex{},
+		limit:  limit,
+		count:  0,
+		first:  time.Now(),
+		window: time.Minute, // default window is 1 minute
 	}
 }
 
@@ -47,6 +49,15 @@ func (r *RateLimiter) increment() {
 	}
 }
 
+func (r *RateLimiter) canReset() bool {
+	if time.Since(r.first)-r.window > 0 {
+		return true
+	}
+	return false
+}
+
+// Allow is a goroutine-safed method that check the rate limiter if canReset(),
+// if exceed limit, or just add 1 then return
 func (r *RateLimiter) Allow() (bool, *RateLimitStatus) {
 	var isAllow bool
 	var limit, remain, used int
@@ -55,7 +66,7 @@ func (r *RateLimiter) Allow() (bool, *RateLimitStatus) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if time.Since(r.first) > time.Minute {
+	if r.canReset() {
 		// can be reset
 		r.reset()
 		r.increment() // add 1 for current used
