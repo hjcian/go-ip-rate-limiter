@@ -32,7 +32,6 @@ func Test_rateLimiter_goroutine_safed(t *testing.T) {
 	limit := 10000
 	r := NewRateLimiter(limit)
 	var wg sync.WaitGroup
-
 	for i := 0; i < limit; i++ {
 		wg.Add(1)
 		go func() {
@@ -42,6 +41,8 @@ func Test_rateLimiter_goroutine_safed(t *testing.T) {
 	}
 	wg.Wait()
 
+	// expect all rate limits are already comsumed
+	// next call will got a Not Allow
 	got1, got2 := r.Allow()
 	AssertAllow(t, got1, false)
 	AssertRatelimitLimitUsed(t, got2.RatelimitLimitUsed, limit)
