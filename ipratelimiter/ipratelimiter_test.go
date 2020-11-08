@@ -1,10 +1,39 @@
 package ipratelimiter
 
 import (
+	"encoding/binary"
+	"net"
+	"sync"
 	"testing"
 )
 
-func TestIPRateLimiter_totalIP(t *testing.T) {
+func int2ip(nn int) string {
+	ip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(ip, uint32(nn))
+	return ip.String()
+}
+
+func Test_IPRateLimiter_goroutine_safed(t *testing.T) {
+	limit := 100000
+	ipr := NewIPRateLimiter(limit)
+
+	var wg sync.WaitGroup
+	for i := 0; i < limit; i++ {
+		wg.Add(1)
+		go func(IPNum int) {
+			// should pass i into function or will be captured by func literal
+			defer wg.Done()
+			ipr.GetLimiter(int2ip(IPNum))
+		}(i)
+	}
+	wg.Wait()
+
+	if got := ipr.totalIP(); got != limit {
+		t.Errorf("IPRateLimiter.totalIP() = %v, want %v", got, limit)
+	}
+}
+
+func Test_IPRateLimiter_totalIP(t *testing.T) {
 	reqLimitPerMin := 2
 	i := NewIPRateLimiter(reqLimitPerMin)
 	tests := []struct {
