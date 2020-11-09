@@ -41,7 +41,8 @@ go run main.go
 假設：自第一次 Request 起算，每個 IP 每分鐘僅能接受 60 個 requests
 
 ### Response if **NOT** exceed the rate limit
-- 在一分鐘內第 30 個 request，X-Ratelimit-Limit-Used 則顯示 30
+- 在一分鐘內第 n 個 request，X-Ratelimit-Limit-Used 則顯示 n
+- n <= 60
 ```shell
 $ curl -I http://localhost:8080/foobar
 HTTP/1.1 200 OK
