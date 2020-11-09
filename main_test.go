@@ -56,7 +56,7 @@ func Test_one_client(t *testing.T) {
 
 	gin.SetMode(gin.ReleaseMode)
 
-	ts := httptest.NewServer(setupServer())
+	ts := httptest.NewServer(setupServer(RequestLimitPerMinute))
 	defer ts.Close()
 
 	// consume all tokens but left one
@@ -95,7 +95,7 @@ func Test_Basic(t *testing.T) {
 
 	// The setupServer method, that we previously refactored
 	// is injected into a test server
-	ts := httptest.NewServer(setupServer())
+	ts := httptest.NewServer(setupServer(RequestLimitPerMinute))
 	// Shut down the server and block until all requests have gone through
 	defer ts.Close()
 

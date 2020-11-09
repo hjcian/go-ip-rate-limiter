@@ -26,8 +26,8 @@ func setHeaders(c *gin.Context, ip string, statusSnapshot *ratelimiter.RateLimit
 }
 
 // RateLimiter is a middleware to limit the request rate
-func RateLimiter() gin.HandlerFunc {
-	var ipLimiter = ipratelimiter.NewIPRateLimiter(RequestLimitPerMinute)
+func RateLimiter(requestLimitPerMin int) gin.HandlerFunc {
+	var ipLimiter = ipratelimiter.NewIPRateLimiter(requestLimitPerMin)
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		limiter := ipLimiter.GetLimiter(ip)
@@ -42,10 +42,13 @@ func RateLimiter() gin.HandlerFunc {
 }
 
 // The engine with all endpoints is now extracted from the main function
-func setupServer() *gin.Engine {
+func setupServer(requestLimitPerMin int) *gin.Engine {
 	// https://github.com/gin-gonic/gin#blank-gin-without-middleware-by-default
 	server := gin.New()
-	server.Use(RateLimiter())
+	if requestLimitPerMin >= 0 {
+		// if requestLimitPerMin < 0, means NO rate limit
+		server.Use(RateLimiter(requestLimitPerMin))
+	}
 
 	// NoRoute to simple match all requests
 	server.NoRoute(pingEndpoint)
@@ -54,5 +57,5 @@ func setupServer() *gin.Engine {
 }
 
 func main() {
-	setupServer().Run()
+	setupServer(RequestLimitPerMinute).Run()
 }
