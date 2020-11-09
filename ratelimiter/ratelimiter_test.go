@@ -32,8 +32,8 @@ func Test_rateLimiter_goroutine_safed(t *testing.T) {
 	limit := 10000
 	r := NewRateLimiter(limit)
 	var wg sync.WaitGroup
+	wg.Add(limit)
 	for i := 0; i < limit; i++ {
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			r.Allow() // comsume all rate limit quota

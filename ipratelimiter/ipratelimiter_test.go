@@ -18,8 +18,8 @@ func Test_IPRateLimiter_goroutine_safed(t *testing.T) {
 	ipr := NewIPRateLimiter(limit)
 
 	var wg sync.WaitGroup
+	wg.Add(limit)
 	for i := 0; i < limit; i++ {
-		wg.Add(1)
 		go func(IPNum int) {
 			// should pass i into function or will be captured by func literal
 			defer wg.Done()
