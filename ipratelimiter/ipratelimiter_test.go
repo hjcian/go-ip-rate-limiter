@@ -21,10 +21,9 @@ func Test_IPRateLimiter_goroutine_safed(t *testing.T) {
 	wg.Add(limit)
 	for i := 0; i < limit; i++ {
 		go func(IPNum int) {
-			// should pass i into function or will be captured by func literal
 			defer wg.Done()
 			ipr.GetLimiter(int2ip(IPNum))
-		}(i)
+		}(i) // should pass i into function or will be captured by func literal
 	}
 	wg.Wait()
 

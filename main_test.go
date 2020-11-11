@@ -8,14 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func makeVirtualUserReq(url, clientip string) (*http.Response, error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("X-Real-Ip", clientip) // leverage the behavior of c.ClientIP()
-	res, err := client.Do(req)
-	return res, err
-}
-
 func AssertErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
@@ -51,9 +43,17 @@ func AssertUsed(t *testing.T, got, expect string) {
 	}
 }
 
+func sendReq(url, clientip string) (*http.Response, error) {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("X-Real-Ip", clientip) // leverage the behavior of c.ClientIP()
+	res, err := client.Do(req)
+	return res, err
+}
+
 func Test_one_client(t *testing.T) {
 	// t.Skip()
-
+	clientIP := "1.2.3.4"
 	gin.SetMode(gin.ReleaseMode)
 
 	ts := httptest.NewServer(setupServer(RequestLimitPerMinute))
@@ -61,25 +61,25 @@ func Test_one_client(t *testing.T) {
 
 	// consume all tokens but left one
 	for i := 0; i < 58; i++ {
-		makeVirtualUserReq(ts.URL, "1.2.3.4")
+		sendReq(ts.URL, clientIP)
 	}
 
-	// use last two
-	resp, err := makeVirtualUserReq(ts.URL, "1.2.3.4")
+	// use 59-th, OK
+	resp, err := sendReq(ts.URL, clientIP)
 	AssertErr(t, err)
 	AssertStatus200(t, resp)
 	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "1")
 	AssertUsed(t, resp.Header.Get("X-ratelimit-limit-used"), "59")
 
-	// use last one
-	resp, err = makeVirtualUserReq(ts.URL, "1.2.3.4")
+	// use 60-th, OK
+	resp, err = sendReq(ts.URL, clientIP)
 	AssertErr(t, err)
 	AssertStatus200(t, resp)
 	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "0")
 	AssertUsed(t, resp.Header.Get("X-ratelimit-limit-used"), "60")
 
-	// test Error
-	resp, err = makeVirtualUserReq(ts.URL, "1.2.3.4")
+	// use 61-th, NG
+	resp, err = sendReq(ts.URL, clientIP)
 	AssertErr(t, err)
 	AssertStatusError(t, resp)
 	AssertRemaining(t, resp.Header.Get("X-ratelimit-limit-remaining"), "0")
@@ -87,11 +87,11 @@ func Test_one_client(t *testing.T) {
 }
 
 func Test_Basic(t *testing.T) {
-	// t.Skip()
-	gin.SetMode(gin.ReleaseMode)
 	// =================================================================
 	// Referencing from https://kpat.io/2019/06/testing-with-gin/
 	// =================================================================
+	// t.Skip()
+	gin.SetMode(gin.ReleaseMode)
 
 	// The setupServer method, that we previously refactored
 	// is injected into a test server
@@ -100,7 +100,7 @@ func Test_Basic(t *testing.T) {
 	defer ts.Close()
 
 	// Make a request to our server with the {base url}/ping
-	resp, err := makeVirtualUserReq(ts.URL, "1.2.3.4")
+	resp, err := sendReq(ts.URL, "1.2.3.4")
 	AssertErr(t, err)
 	AssertStatus200(t, resp)
 
@@ -116,6 +116,7 @@ func Test_Basic(t *testing.T) {
 		t.Fatalf("Expected \"application/json; charset=utf-8\", got %s", val[0])
 	}
 
+	// For debug purposes
 	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-per-minute"))
 	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-remaining"))
 	t.Logf("%v \n", resp.Header.Get("X-ratelimit-limit-reset"))

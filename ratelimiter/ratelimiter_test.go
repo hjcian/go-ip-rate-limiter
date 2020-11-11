@@ -31,6 +31,7 @@ func Test_rateLimiter_goroutine_safed(t *testing.T) {
 	// t.Skip()
 	limit := 10000
 	r := NewRateLimiter(limit)
+
 	var wg sync.WaitGroup
 	wg.Add(limit)
 	for i := 0; i < limit; i++ {
@@ -51,7 +52,7 @@ func Test_rateLimiter_goroutine_safed(t *testing.T) {
 
 func Test_rateLimiter_reset(t *testing.T) {
 	limit := 2
-	window := time.Nanosecond // testing window is 1 Millisecond
+	window := time.Nanosecond // 'window' set to 1 Millisecond to observe the behavior of reset
 	r := func(limit int) *RateLimiter {
 		return &RateLimiter{
 			mu:     &sync.RWMutex{},
@@ -72,7 +73,7 @@ func Test_rateLimiter_reset(t *testing.T) {
 		{"3 - OK", true, &RateLimitStatus{limit, 1, time.Now().Unix(), 1}},
 	}
 	for _, tt := range tests {
-		time.Sleep(2 * window) // wait for reset
+		time.Sleep(2 * window) // wait 2 times of window to make sure the reset works
 		t.Run(tt.name, func(t *testing.T) {
 			got1, got2 := r.Allow()
 			AssertAllow(t, got1, tt.want1)
